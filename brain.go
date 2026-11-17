@@ -105,8 +105,9 @@ type Brain struct {
 	stop       context.CancelFunc // stops the server's supervisor
 	download   *Download
 	cancelDL   context.CancelFunc
-	local      *http.Client // dials the running server's socket, nil while none runs
-	downloads  *http.Client // fetches the runtime and the models from the internet
+	downloaded chan struct{} // closed when the running download's goroutine ends
+	local      *http.Client  // dials the running server's socket, nil while none runs
+	downloads  *http.Client  // fetches the runtime and the models from the internet
 	log        func(format string, args ...any)
 	generation int
 }
@@ -222,7 +223,9 @@ func socketClient(socket string) *http.Client {
 
 // Install downloads the runtime if it is missing and the model, in the
 // background. When the model is the one chosen, the server starts after.
-func (b *Brain) Install(model string) error {
+// landed, when not nil, runs once the model is on disk, and never for a
+// download that failed or was cancelled.
+func (b *Brain) Install(model string, landed func()) error {
 	if _, ok := brains[model]; !ok {
 		return fmt.Errorf("%w: there is no local model %q", errBadChoice, model)
 	}
@@ -242,23 +245,34 @@ func (b *Brain) Install(model string) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	b.cancelDL = cancel
-	b.download = &Download{Model: model, Running: true}
+	download, done := &Download{Model: model, Running: true}, make(chan struct{})
+	b.cancelDL, b.download, b.downloaded = cancel, download, done
 
 	go func() {
+		defer close(done)
 		defer cancel()
 
 		err := b.fetch(ctx, model)
+		cancelled := errors.Is(err, context.Canceled)
 
 		b.mu.Lock()
-		b.download.Running = false
-		if err != nil {
-			b.download.Error = err.Error()
+		download.Running = false
+		if err != nil && !cancelled {
+			download.Error = err.Error()
+		}
+		// A cancelled download leaves nothing behind for the page to show.
+		if cancelled && b.download == download {
+			b.download = nil
 		}
 		chosen := b.model == model
 		b.mu.Unlock()
 
-		if err != nil {
+		switch {
+		case cancelled:
+			b.log("the download of %s was cancelled", model)
+
+			return
+		case err != nil:
 			b.log("the model %s could not be installed: %v", model, err)
 
 			return
@@ -267,9 +281,39 @@ func (b *Brain) Install(model string) error {
 		if chosen {
 			b.run(model, true)
 		}
+
+		if landed != nil {
+			landed()
+		}
 	}()
 
 	return nil
+}
+
+// cancelWait bounds how long Cancel waits for the download to let go of its
+// files. A cancelled request ends at once, so this is only a safety net.
+const cancelWait = 15 * time.Second
+
+// Cancel stops the running download and returns once its partial file is
+// gone, so the same model can be downloaded again straight after. With no
+// download running it does nothing.
+func (b *Brain) Cancel() {
+	b.mu.Lock()
+	cancel, done := b.cancelDL, b.downloaded
+	running := b.download != nil && b.download.Running
+	b.mu.Unlock()
+
+	if !running || cancel == nil || done == nil {
+		return
+	}
+
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(cancelWait):
+		b.log("the cancelled download did not end within %s", cancelWait)
+	}
 }
 
 // Remove deletes a model from disk. The running one is stopped first.

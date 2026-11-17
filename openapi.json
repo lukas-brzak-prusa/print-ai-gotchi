@@ -629,7 +629,7 @@
       "post": {
         "operationId": "install-model",
         "summary": "Download a local model",
-        "description": "Downloads the pinned llama.cpp build when it is missing and the model, checks both against their digests, and starts the server when the model is the chosen one. Read GET /brain for the progress.",
+        "description": "Downloads the llama.cpp runtime if it is missing and the model, in the background, checking each against its pinned SHA-256 digest. The pet keeps its current brain meanwhile, and moves to the new model once it is on disk, unless somebody chose another brain in the meantime. Read GET /brain for the progress. Refused when page_setup is off.",
         "parameters": [
           {
             "name": "model",
@@ -704,6 +704,35 @@
             "description": "A refusal with one of this module's codes.",
             "content": {
               "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/brain/download": {
+      "delete": {
+        "operationId": "cancel-download",
+        "summary": "Cancel the running download",
+        "description": "Stops the download of the runtime or a model and deletes what it wrote so far. With no download running it does nothing. Refused when page_setup is off.",
+        "responses": {
+          "200": {
+            "description": "The brain: the choice, the providers, the local models and what the local server does.",
+            "content": {
+              "application/json": {
                 "schema": {
                   "type": "object"
                 }

@@ -166,5 +166,6 @@
   "print-ai-gotchi.vitals.hours": "{hours} h printed",
   "print-ai-gotchi.vitals.growthLabel": "Growing into a {next}",
   "print-ai-gotchi.vitals.grownLabel": "Fully grown",
-  "print-ai-gotchi.roast.title": "{name}'s morning roast"
+  "print-ai-gotchi.roast.title": "{name}'s morning roast",
+  "print-ai-gotchi.local.cancel": "Cancel"
 }

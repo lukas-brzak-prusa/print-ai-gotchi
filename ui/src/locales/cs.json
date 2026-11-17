@@ -158,5 +158,6 @@
   "print-ai-gotchi.vitals.hours": "{hours} h natisknuto",
   "print-ai-gotchi.vitals.growthLabel": "Roste na: {next}",
   "print-ai-gotchi.vitals.grownLabel": "Dorostl naplno",
-  "print-ai-gotchi.roast.title": "Ranní roast"
+  "print-ai-gotchi.roast.title": "Ranní roast",
+  "print-ai-gotchi.local.cancel": "Zrušit"
 }

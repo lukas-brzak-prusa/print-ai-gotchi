@@ -1,6 +1,7 @@
 <script lang="ts">
   // The models that run on this server: download one, use it, delete it.
   import DownloadIcon from '@lucide/svelte/icons/download';
+  import XIcon from '@lucide/svelte/icons/x';
   import Trash2Icon from '@lucide/svelte/icons/trash-2';
   import {
     Badge,
@@ -32,9 +33,10 @@
   const use = (m: LocalModel): Promise<boolean> =>
     pet.choose({ provider: 'local', local_model: m.key });
 
+  // The pet keeps its brain while a model downloads and moves to the new one
+  // when it lands, so a cancelled download leaves it able to talk.
   const get = async (m: LocalModel): Promise<void> => {
-    // Downloading a model is choosing it: the pet wakes on it when it lands.
-    if (await use(m)) await pet.install(m.key);
+    await pet.install(m.key);
   };
 </script>
 
@@ -140,7 +142,17 @@
             >
               {t('print-ai-gotchi.local.use')}
             </Button>
-          {:else if !loading}
+          {:else if loading}
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!mind.editable || pet.mindBusy}
+              onclick={() => void pet.cancelDownload()}
+            >
+              <XIcon class="size-4" />
+              {t('print-ai-gotchi.local.cancel')}
+            </Button>
+          {:else}
             <Button
               size="sm"
               disabled={!mind.editable ||

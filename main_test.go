@@ -512,3 +512,55 @@ func TestTheServerGetsOnlyTheEnvironmentItNeeds(t *testing.T) {
 		}
 	}
 }
+
+// A download can be cancelled: it stops, leaves no partial file and no
+// error behind, and the same model can be downloaded again at once.
+func TestADownloadCanBeCancelled(t *testing.T) {
+	started := make(chan struct{}, 4)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "1000000")
+		_, _ = w.Write(make([]byte, 1000))
+		w.(http.Flusher).Flush()
+		started <- struct{}{}
+		<-r.Context().Done() // the rest never comes
+	}))
+	t.Cleanup(server.Close)
+
+	const model = "qwen2.5-0.5b"
+	kept := brains[model]
+	t.Cleanup(func() { brains[model] = kept })
+
+	slow := kept
+	slow.pinned = pinned{URL: server.URL + "/model.gguf", SHA256: strings.Repeat("0", 64), Size: 1000000}
+	brains[model] = slow
+
+	dir := t.TempDir()
+	fakeServer := filepath.Join(dir, "llama-server")
+	if err := os.WriteFile(fakeServer, []byte("not run"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	brain := newBrain(func(string, ...any) {})
+	brain.dir, brain.settings.LlamaServer = dir, fakeServer
+
+	for range 2 {
+		if err := brain.Install(model, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		<-started
+		brain.Cancel()
+
+		status := brain.Status()
+		if status.Download != nil {
+			t.Fatalf("after cancelling, the page still shows %+v", *status.Download)
+		}
+
+		parts, _ := filepath.Glob(filepath.Join(dir, "brain", "models", "*.part"))
+		if len(parts) > 0 {
+			t.Fatalf("a cancelled download left %v", parts)
+		}
+	}
+
+	brain.Cancel() // nothing runs: nothing happens
+}

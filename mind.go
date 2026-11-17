@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/prusa3d/prusa-connect/sdk/fault"
@@ -216,6 +217,35 @@ func (a *App) probe(ctx context.Context, in Probe) (ProbeResult, error) {
 	return ProbeResult{OK: true, Models: models}, nil
 }
 
+// adopt makes a model that just landed the pet's brain, unless somebody chose
+// another brain while it downloaded.
+func (a *App) adopt(before Choice, model string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	now := a.choice(ctx)
+	if !reflect.DeepEqual(now, before) {
+		return
+	}
+
+	now.Provider, now.LocalModel = "local", model // the provider id of this server
+	if err := a.saveChoice(ctx, now); err != nil {
+		logf("the downloaded %s could not be made the brain: %v", model, err)
+	}
+}
+
+// editable refuses the request when the operator locked the brain, and says
+// whether it may go on.
+func (a *App) editable(w http.ResponseWriter, r *http.Request) bool {
+	if a.settings.Load().PageSetup {
+		return true
+	}
+
+	refuse(w, r, BrainLocked.New("page_setup is off, so only the operator changes the brain"))
+
+	return false
+}
+
 // mindRoutes are the routes of the brain page.
 func (a *App) mindRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /brain", func(w http.ResponseWriter, r *http.Request) {
@@ -223,9 +253,7 @@ func (a *App) mindRoutes(mux *http.ServeMux) {
 	})
 
 	mux.HandleFunc("PUT /brain", func(w http.ResponseWriter, r *http.Request) {
-		if !a.settings.Load().PageSetup {
-			refuse(w, r, BrainLocked.New("page_setup is off, so only the operator changes the brain"))
-
+		if !a.editable(w, r) {
 			return
 		}
 
@@ -271,7 +299,15 @@ func (a *App) mindRoutes(mux *http.ServeMux) {
 	})
 
 	mux.HandleFunc("POST /brain/models/{model}/install", func(w http.ResponseWriter, r *http.Request) {
-		if err := a.brain.Install(r.PathValue("model")); err != nil {
+		if !a.editable(w, r) {
+			return
+		}
+
+		// The pet keeps the brain it has until the new one is on disk, so a
+		// download that fails or is cancelled leaves it able to talk.
+		model, before := r.PathValue("model"), a.choice(r.Context())
+
+		if err := a.brain.Install(model, func() { a.adopt(before, model) }); err != nil {
 			refuse(w, r, faultOf(err))
 
 			return
@@ -280,7 +316,20 @@ func (a *App) mindRoutes(mux *http.ServeMux) {
 		answer(w, http.StatusAccepted, a.mind(r.Context()))
 	})
 
+	mux.HandleFunc("DELETE /brain/download", func(w http.ResponseWriter, r *http.Request) {
+		if !a.editable(w, r) {
+			return
+		}
+
+		a.brain.Cancel()
+		answer(w, http.StatusOK, a.mind(r.Context()))
+	})
+
 	mux.HandleFunc("DELETE /brain/models/{model}", func(w http.ResponseWriter, r *http.Request) {
+		if !a.editable(w, r) {
+			return
+		}
+
 		if err := a.brain.Remove(r.PathValue("model")); err != nil {
 			refuse(w, r, faultOf(err).With(fault.StringParam("model", r.PathValue("model"))))
 

@@ -165,6 +165,10 @@ export class Pet {
     return this.#mindAction(() => this.#api.remove(model, this.#signal));
   }
 
+  cancelDownload(): Promise<boolean> {
+    return this.#mindAction(() => this.#api.cancelDownload(this.#signal));
+  }
+
   async probe(probe: {
     provider: string;
     base_url?: string;

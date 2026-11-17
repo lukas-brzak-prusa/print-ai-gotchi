@@ -187,6 +187,7 @@ export interface Api {
   ): Promise<ProbeResult>;
   install(model: string, signal?: AbortSignal): Promise<Mind>;
   remove(model: string, signal?: AbortSignal): Promise<Mind>;
+  cancelDownload(signal?: AbortSignal): Promise<Mind>;
   ask(messages: Turn[], signal?: AbortSignal): Promise<Reply>;
   reply(id: string, signal?: AbortSignal): Promise<Reply>;
 }
@@ -232,6 +233,11 @@ export const apiOf = (host: ModuleHost): Api => {
     'DELETE',
     '/brain/models/{model}',
   );
+  const cancelDownload = operation(
+    'print-ai-gotchi-cancel-download',
+    'DELETE',
+    '/brain/download',
+  );
   const ask = operation('print-ai-gotchi-ask', 'POST', '/chat', true);
   const reply = operation('print-ai-gotchi-reply', 'GET', '/chat/{id}');
 
@@ -243,6 +249,7 @@ export const apiOf = (host: ModuleHost): Api => {
     probe: (body, signal) => call(probe, { body }, signal),
     install: (model, signal) => call(install, { path: { model } }, signal),
     remove: (model, signal) => call(remove, { path: { model } }, signal),
+    cancelDownload: (signal) => call(cancelDownload, {}, signal),
     ask: (messages, signal) => call(ask, { body: { messages } }, signal),
     reply: (id, signal) => call(reply, { path: { id } }, signal),
   };
