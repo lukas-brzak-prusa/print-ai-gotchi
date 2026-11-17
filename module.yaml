@@ -1,0 +1,129 @@
+# PrintAIgotchi: a pet that lives in the print server, watches the printers, says
+# what needs a person, and talks through a small language model that runs on
+# the same machine, or through any server that speaks the OpenAI chat API.
+#
+# The namespace is absent on purpose. The host derives it from the repository
+# address the operator installed: com.github.aux.lukas-brzak-prusa.print-ai-gotchi.
+
+name: print-ai-gotchi
+kind: sink
+version: 0.1.0
+license: MIT
+title: PrintAIgotchi
+summary: A pet that watches your printers, tells you what needs you, and chats with a small AI model running on your own server.
+codeowner: Lukáš Brzák
+lifecycle: experimental
+contract_major: 1
+openapi: openapi.json
+
+require:
+  core: ">=0.1.0-beta.1"
+  core-device.list: "*"
+
+platforms:
+  - linux_amd64
+  - linux_arm64
+  - darwin_arm64
+  - darwin_amd64
+
+# The pet follows the fleet as itself, so it can notice a problem while nobody
+# has the page open.
+permissions:
+  # read the printers and the event stream, to notice what needs a person
+  - observe
+
+needs:
+  # where the local brain keeps the llama.cpp runtime and the model
+  data: true
+  # the module and the local brain together, enough for the 4B models.
+  # Measured on macOS arm64 while it answers: Qwen2.5 1.5B 1.42 GB, Qwen3 1.7B
+  # 2.47 GB, Gemma 3 4B 3.03 GB. Not yet measured on a Raspberry Pi. Qwen3 8B needs more: the
+  # operator raises it with -memory-mib, and the page says so.
+  memory_mib: 3584
+
+options:
+  - key: provider
+    type: string
+    default: "local"
+    summary: Where the pet thinks at first. local, ollama, lmstudio, anthropic, openai, gemini, openrouter, groq, mistral or custom. A person may choose another on the pet's page.
+  - key: model
+    type: string
+    default: "gemma3-4b"
+    summary: The local model the pet starts with, one of the models listed on the pet's page.
+  - key: base_url
+    type: string
+    default: ""
+    summary: The address of the remote server for the provider, with its /v1 path, when it is ollama, lmstudio or custom.
+  - key: api_key
+    type: secret
+    default: ""
+    summary: The API key of the provider, when it takes one.
+  - key: remote_model
+    type: string
+    default: ""
+    summary: The model the remote provider is asked for.
+  - key: page_setup
+    type: bool
+    default: "true"
+    summary: A person with operate rights on this module may choose the brain and enter keys on the pet's page.
+  - key: llama_server
+    type: string
+    default: ""
+    summary: An absolute path of a llama-server already on this machine. Empty downloads the pinned llama.cpp build.
+  - key: threads
+    type: int
+    default: "0"
+    summary: The CPU threads the local brain uses. 0 lets it choose.
+  - key: quips
+    type: bool
+    default: "true"
+    summary: The pet comments on each new event in its own words.
+
+egress:
+  - host: github.com
+    why: Downloads the pinned llama.cpp build when a person installs a local model.
+    sends: Only the request for the file.
+  - host: release-assets.githubusercontent.com
+    why: GitHub serves the llama.cpp build from there after a redirect.
+    sends: Only the request for the file.
+  - host: huggingface.co
+    why: Downloads the pinned model a person installs on the pet's page.
+    sends: Only the request for the file.
+  - host: "*.aws.cdn.hf.co"
+    why: Hugging Face serves the model from there after a redirect.
+    sends: Only the request for the file.
+  - host: api.anthropic.com
+    why: Asks Claude, when the brain is Anthropic Claude.
+    sends: The API key, the pet's character, the state of the printers the person may see, and the conversation.
+  - host: api.openai.com
+    why: Asks OpenAI, when the brain is OpenAI.
+    sends: The API key, the pet's character, the state of the printers the person may see, and the conversation.
+  - host: generativelanguage.googleapis.com
+    why: Asks Gemini, when the brain is Google Gemini.
+    sends: The API key, the pet's character, the state of the printers the person may see, and the conversation.
+  - host: openrouter.ai
+    why: Asks OpenRouter, when the brain is OpenRouter.
+    sends: The API key, the pet's character, the state of the printers the person may see, and the conversation.
+  - host: api.groq.com
+    why: Asks Groq, when the brain is Groq.
+    sends: The API key, the pet's character, the state of the printers the person may see, and the conversation.
+  - host: api.mistral.ai
+    why: Asks Mistral, when the brain is Mistral.
+    sends: The API key, the pet's character, the state of the printers the person may see, and the conversation.
+  - option: base_url
+    why: Asks the server at this address, or at the one a person enters on the pet's page for Ollama, LM Studio or another server, when page_setup is on.
+    sends: The API key if one is set, the pet's character, the state of the printers the person may see, and the conversation.
+
+ui:
+  entry: ui/index.js
+  library: ">=0.0.1 <1.0.0"
+  contributes:
+    pages:
+      - path: print-ai-gotchi
+        title: PrintAIgotchi
+    cards:
+      - id: pet
+        title: PrintAIgotchi
+        description: The pet, its mood, and the last thing it noticed.
+        size: {w: 4, h: 4}
+        least: {w: 3, h: 3}

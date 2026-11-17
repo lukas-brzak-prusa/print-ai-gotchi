@@ -1,0 +1,659 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "print-ai-gotchi",
+    "version": "0.1.0",
+    "description": "The routes of PrintAIgotchi. Every path is relative to the mount the host assigns. The host takes view_resource on the instance for a GET and operate_resource for anything else."
+  },
+  "paths": {
+    "/pet": {
+      "get": {
+        "operationId": "read-pet",
+        "summary": "The pet, for the person asking",
+        "description": "The profile, the mood worked out from the printers the person may see, the notices about those printers, the brain, and the choices the profile form offers.",
+        "responses": {
+          "200": {
+            "description": "The pet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "profile": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "description": "The pet's name, at most 24 characters."
+                        },
+                        "personality": {
+                          "type": "string",
+                          "description": "grumpy, intern, zen, commentator or cat."
+                        },
+                        "language": {
+                          "type": "string",
+                          "description": "The language it speaks: en, cs, sk, de, pl, fr, es or it."
+                        },
+                        "species": {
+                          "type": "string",
+                          "description": "How it is drawn: cat, robot or blob."
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "personality",
+                        "language",
+                        "species"
+                      ]
+                    },
+                    "mood": {
+                      "type": "object"
+                    },
+                    "notices": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "brain": {
+                      "type": "object",
+                      "properties": {
+                        "state": {
+                          "type": "string",
+                          "description": "absent, downloading, starting, ready, failed, remote or no_data."
+                        },
+                        "backend": {
+                          "type": "string",
+                          "description": "local or remote."
+                        },
+                        "model": {
+                          "type": "object",
+                          "description": "The bundled model the settings choose."
+                        },
+                        "models": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          },
+                          "description": "Every bundled model."
+                        },
+                        "step": {
+                          "type": "string",
+                          "description": "runtime or model, while downloading."
+                        },
+                        "done": {
+                          "type": "integer",
+                          "description": "Bytes downloaded."
+                        },
+                        "total": {
+                          "type": "integer",
+                          "description": "Bytes to download."
+                        },
+                        "error": {
+                          "type": "string",
+                          "description": "Why it failed."
+                        },
+                        "platform": {
+                          "type": "string",
+                          "description": "GOOS_GOARCH of the server."
+                        },
+                        "supported": {
+                          "type": "boolean",
+                          "description": "A runtime exists for this platform."
+                        },
+                        "remote_url": {
+                          "type": "string",
+                          "description": "The remote server, when backend is remote."
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "backend",
+                        "platform",
+                        "supported"
+                      ]
+                    },
+                    "choices": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "profile",
+                    "mood",
+                    "notices",
+                    "brain",
+                    "choices"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profile": {
+      "put": {
+        "operationId": "write-profile",
+        "summary": "Change who the pet is",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "The pet's name, at most 24 characters."
+                  },
+                  "personality": {
+                    "type": "string",
+                    "description": "grumpy, intern, zen, commentator or cat."
+                  },
+                  "language": {
+                    "type": "string",
+                    "description": "The language it speaks: en, cs, sk, de, pl, fr, es or it."
+                  },
+                  "species": {
+                    "type": "string",
+                    "description": "How it is drawn: cat, robot or blob."
+                  }
+                },
+                "required": [
+                  "name",
+                  "personality",
+                  "language",
+                  "species"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The profile as kept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "The pet's name, at most 24 characters."
+                    },
+                    "personality": {
+                      "type": "string",
+                      "description": "grumpy, intern, zen, commentator or cat."
+                    },
+                    "language": {
+                      "type": "string",
+                      "description": "The language it speaks: en, cs, sk, de, pl, fr, es or it."
+                    },
+                    "species": {
+                      "type": "string",
+                      "description": "How it is drawn: cat, robot or blob."
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "personality",
+                    "language",
+                    "species"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "description": "Writes the pet's name, character, language and look into the module's record store. Every person on the server meets the same pet."
+      }
+    },
+    "/brain": {
+      "get": {
+        "operationId": "read-brain",
+        "summary": "The brain and what can be chosen",
+        "description": "The chosen provider and model, every provider, every local model with what is installed, and the local server's state. A key is never returned, only whether one is set.",
+        "responses": {
+          "200": {
+            "description": "The brain: the choice, the providers, the local models and what the local server does.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "choose-brain",
+        "summary": "Choose the brain",
+        "description": "Chooses the provider and its model, address and key. An absent key keeps the stored one and an empty one removes it. Refused while page_setup is off.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "local_model": {
+                    "type": "string"
+                  },
+                  "base_url": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The brain: the choice, the providers, the local models and what the local server does.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat": {
+      "post": {
+        "operationId": "start-answer",
+        "summary": "Ask the pet",
+        "description": "Starts an answer and returns its id at once. The brain reads the printers the person may see. Read GET /chat/{id} until the state is done or failed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "messages": {
+                    "type": "array",
+                    "description": "The conversation, at most the last 10 turns, ending with the person's question.",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "description": "user or assistant."
+                        },
+                        "content": {
+                          "type": "string",
+                          "description": "The text."
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "content"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "messages"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The answer started.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "The answer's id."
+                    },
+                    "state": {
+                      "type": "string",
+                      "description": "queued, writing, done or failed."
+                    },
+                    "text": {
+                      "type": "string",
+                      "description": "What the brain wrote so far."
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Why it failed."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "state",
+                    "text"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/{id}": {
+      "get": {
+        "operationId": "read-answer",
+        "summary": "Read an answer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The answer so far.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "The answer's id."
+                    },
+                    "state": {
+                      "type": "string",
+                      "description": "queued, writing, done or failed."
+                    },
+                    "text": {
+                      "type": "string",
+                      "description": "What the brain wrote so far."
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Why it failed."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "state",
+                    "text"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "description": "The answer as far as the brain has written it, and its state. An answer is kept for 15 minutes."
+      }
+    },
+    "/brain/probe": {
+      "post": {
+        "operationId": "probe-brain",
+        "summary": "Try a provider",
+        "description": "Asks a provider for its models with the address and key given, or the stored ones, before a person chooses it.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "base_url": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Whether it answered, and its models.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/brain/models/{model}/install": {
+      "post": {
+        "operationId": "install-model",
+        "summary": "Download a local model",
+        "description": "Downloads the pinned llama.cpp build when it is missing and the model, checks both against their digests, and starts the server when the model is the chosen one. Read GET /brain for the progress.",
+        "parameters": [
+          {
+            "name": "model",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "The brain: the choice, the providers, the local models and what the local server does.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/brain/models/{model}": {
+      "delete": {
+        "operationId": "remove-model",
+        "summary": "Delete a local model",
+        "description": "Deletes the model's file. The server stops first when it runs this model.",
+        "parameters": [
+          {
+            "name": "model",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The brain: the choice, the providers, the local models and what the local server does.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A refusal with one of this module's codes.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
