@@ -16,6 +16,11 @@ Ollama.
 - **eight languages** for what it says, and English and Czech for the page
 - ten brains: a local model, Ollama, LM Studio, Claude, OpenAI, Gemini,
   OpenRouter, Groq, Mistral or any OpenAI-compatible server
+- **it gets hungry**: printing feeds it. After a day without a print it begs, after two it
+  starves, dramatically
+- **it grows up** with the printing hours of the whole fleet: hatchling, youngster, grown-up,
+  legend with a crown
+- **a morning roast** of the day before, in its own character
 - a page of its own with the chat, and a card for a dashboard
 
 ![The Talk tab: the pet on its stage with the latest notices, and a chat about the printers](docs/chat.png)
@@ -28,6 +33,7 @@ Ollama.
 | brain | `brain.go`, `models.go` | downloads a pinned llama.cpp build and a pinned model into the module's data directory, checks both against a SHA-256 digest, and runs `llama-server` on a unix socket in a private directory, so it listens on no port |
 | voice | `llm.go`, `anthropic.go` | one streaming client for the OpenAI chat API, and Claude through the Anthropic SDK |
 | mind | `providers.go`, `mind.go` | the providers, the brain a person chose, and the routes of the Brain tab |
+| body | `vitals.go`, `life.go` | hunger, growth and the day's counts, worked out from the clock and the fleet; the morning roast |
 | character | `persona.go` | the characters and the character instructions the model reads |
 | routes | `app.go` | the routes the page calls. An answer is started with `POST /chat` and read with `GET /chat/{id}` while the model writes it, because a model on a Raspberry Pi can take longer than one request may |
 
@@ -87,6 +93,7 @@ newer, which Raspberry Pi OS on Debian 13 has. On an older system, set
 | `llama_server` | empty | the path of a `llama-server` already on the machine |
 | `threads` | `0` | CPU threads for the local brain, 0 lets it choose |
 | `quips` | `true` | the pet comments on each new notice |
+| `roast_hour` | `8` | the hour from which the pet writes its morning roast of the day before, -1 for none |
 
 ## Build and run it
 

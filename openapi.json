@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "print-ai-gotchi",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "description": "The routes of PrintAIgotchi. Every path is relative to the mount the host assigns. The host takes view_resource on the instance for a GET and operate_resource for anything else."
   },
   "paths": {
@@ -10,7 +10,7 @@
       "get": {
         "operationId": "read-pet",
         "summary": "The pet, for the person asking",
-        "description": "The profile, the mood worked out from the printers the person may see, the notices about those printers, the brain, and the choices the profile form offers.",
+        "description": "The profile, the mood worked out from the printers the person may see, the notices about those printers, the brain, the choices the profile form offers, and the pet's body: hunger, growth and the morning roast.",
         "responses": {
           "200": {
             "description": "The pet.",
@@ -115,6 +115,74 @@
                     },
                     "choices": {
                       "type": "object"
+                    },
+                    "vitals": {
+                      "type": "object",
+                      "description": "The pet's body, absent until it was read from the store. It counts the whole fleet and names no printer.",
+                      "properties": {
+                        "stage": {
+                          "type": "string",
+                          "description": "baby, kid, adult or legend."
+                        },
+                        "hunger": {
+                          "type": "string",
+                          "description": "full, peckish, hungry or starving."
+                        },
+                        "fullness": {
+                          "type": "integer",
+                          "description": "100 just after a print, 0 when starving begins."
+                        },
+                        "hours": {
+                          "type": "number",
+                          "description": "Printing hours of the whole fleet since the pet hatched."
+                        },
+                        "fed": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "The last moment a printer printed."
+                        },
+                        "born": {
+                          "type": "string",
+                          "format": "date-time",
+                          "description": "When the pet hatched."
+                        },
+                        "next": {
+                          "type": "string",
+                          "description": "The next stage, absent for a legend."
+                        },
+                        "growth": {
+                          "type": "integer",
+                          "description": "The share of the way to the next stage, 0 to 100."
+                        },
+                        "roast": {
+                          "type": "object",
+                          "description": "The newest morning roast.",
+                          "properties": {
+                            "date": {
+                              "type": "string",
+                              "description": "The day it is about, as 2006-01-02."
+                            },
+                            "text": {
+                              "type": "string",
+                              "description": "What the pet wrote."
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "description": "When it was written."
+                            }
+                          }
+                        }
+                      },
+                      "required": [
+                        "stage",
+                        "hunger",
+                        "fullness",
+                        "hours",
+                        "fed",
+                        "born",
+                        "growth"
+                      ]
                     }
                   },
                   "required": [

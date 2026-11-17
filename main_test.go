@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -429,8 +430,12 @@ func TestTheManifestPublishesTheCodesDefaults(t *testing.T) {
 	}
 
 	manifest := string(raw)
-	for key, want := range map[string]string{"provider": defaultProvider, "model": defaultModel} {
-		block := "key: " + key + "\n    type: string\n    default: \"" + want + "\""
+	for key, want := range map[string]string{
+		"provider":   "string\n    default: \"" + defaultProvider,
+		"model":      "string\n    default: \"" + defaultModel,
+		"roast_hour": "int\n    default: \"" + strconv.Itoa(defaultRoast),
+	} {
+		block := "key: " + key + "\n    type: " + want + "\""
 		if !strings.Contains(manifest, block) {
 			t.Errorf("module.yaml does not publish %s = %q", key, want)
 		}

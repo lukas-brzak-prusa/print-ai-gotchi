@@ -54,6 +54,9 @@
 .print-ai-gotchi-face[data-face='worried'] {
   --pp-bulb: oklch(0.8 0.16 80);
 }
+.print-ai-gotchi-face[data-face='hungry'] {
+  --pp-bulb: oklch(0.72 0.17 50);
+}
 .print-ai-gotchi-face[data-face='sleepy'],
 .print-ai-gotchi-face[data-face='bored'] {
   --pp-bulb: oklch(0.6 0.02 260);
@@ -136,6 +139,34 @@
   stroke: var(--pp-ink);
   stroke-width: 1.5;
 }
+.print-ai-gotchi-face .pp-shell {
+  fill: oklch(0.97 0.015 85);
+  stroke: var(--pp-ink);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.print-ai-gotchi-face .pp-crown path {
+  fill: oklch(0.85 0.16 90);
+  stroke: var(--pp-ink);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.print-ai-gotchi-face .pp-crown circle {
+  fill: oklch(0.6 0.2 25);
+  stroke: var(--pp-ink);
+  stroke-width: 2;
+}
+.print-ai-gotchi-face .pp-drool {
+  fill: var(--pp-sweat);
+  stroke: var(--pp-ink);
+  stroke-width: 2;
+}
+.print-ai-gotchi-face .pp-rumble {
+  fill: none;
+  stroke: var(--pp-ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
 .print-ai-gotchi-face .pp-z {
   fill: none;
   stroke: var(--pp-ink);
@@ -155,6 +186,9 @@
 .print-ai-gotchi-face .pp-spark,
 .print-ai-gotchi-face .pp-sweat,
 .print-ai-gotchi-face .pp-heat,
+.print-ai-gotchi-face .pp-drool,
+.print-ai-gotchi-face .pp-rumble,
+.print-ai-gotchi-face .pp-crown,
 .print-ai-gotchi-face .pp-drip {
   transform-box: fill-box;
   transform-origin: center;
@@ -178,6 +212,19 @@
   .print-ai-gotchi-face[data-face='proud'] .pp-body,
   .print-ai-gotchi-face[data-face='proud'] .pp-face {
     animation: pp-hop 1.6s ease-in-out infinite;
+  }
+  .print-ai-gotchi-face[data-face='hungry'] .pp-body,
+  .print-ai-gotchi-face[data-face='hungry'] .pp-face {
+    animation: pp-fidget 1.8s ease-in-out infinite;
+  }
+  .print-ai-gotchi-face .pp-drool {
+    animation: pp-drop 1.6s ease-in infinite;
+  }
+  .print-ai-gotchi-face .pp-rumble {
+    animation: pp-twinkle 0.9s ease-in-out infinite;
+  }
+  .print-ai-gotchi-face .pp-crown {
+    animation: pp-twinkle 3s ease-in-out infinite;
   }
   .print-ai-gotchi-face[data-face='sleepy'] .pp-body,
   .print-ai-gotchi-face[data-face='sleepy'] .pp-face {
@@ -393,6 +440,9 @@
 .print-ai-gotchi-stage[data-face='busy'] {
   --pp-glow: oklch(0.92 0.1 150 / 0.5);
 }
+.print-ai-gotchi-stage[data-face='hungry'] {
+  --pp-glow: oklch(0.88 0.12 55 / 0.55);
+}
 .print-ai-gotchi-stage[data-face='sleepy'] {
   --pp-glow: oklch(0.85 0.05 260 / 0.4);
 }
@@ -482,6 +532,69 @@
 }
 .print-ai-gotchi-recent li[data-severity='warning'] span {
   color: oklch(0.88 0.12 85);
+}
+
+/* The pet's body: how full it is and how far to the next stage. */
+.print-ai-gotchi-vitals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 1rem;
+  font-size: 0.8125rem;
+}
+
+.print-ai-gotchi-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.print-ai-gotchi-meter p {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.print-ai-gotchi-meter p span:last-child {
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.print-ai-gotchi-bar {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: oklch(0.2 0.02 60 / 0.25);
+  overflow: hidden;
+}
+
+.print-ai-gotchi-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: oklch(0.72 0.16 145);
+  transition: width 0.6s ease;
+}
+
+.print-ai-gotchi-meter[data-hunger='hungry'] .print-ai-gotchi-bar span {
+  background: oklch(0.75 0.16 70);
+}
+.print-ai-gotchi-meter[data-hunger='starving'] .print-ai-gotchi-bar span {
+  background: oklch(0.62 0.2 28);
+}
+.print-ai-gotchi-meter[data-key='growth'] .print-ai-gotchi-bar span {
+  background: oklch(0.7 0.14 260);
+}
+
+.print-ai-gotchi-said[data-roast='true'] {
+  white-space: normal;
+}
+
+.print-ai-gotchi-roast-title {
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.7;
 }
 
 /* The conversation. */

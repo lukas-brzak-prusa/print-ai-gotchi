@@ -20,6 +20,11 @@
     latestQuip(view.notices) ?? t(`print-ai-gotchi.mood.${view.mood.face}`),
   );
   const recent = $derived(view.notices.slice(0, 3));
+  const vitals = $derived(view.vitals);
+  const hoursText = (hours: number): string =>
+    hours.toLocaleString(undefined, {
+      maximumFractionDigits: hours < 10 ? 1 : 0,
+    });
   const counts = $derived(
     (
       [
@@ -40,6 +45,7 @@
     <PetFace
       face={view.mood.face}
       species={view.profile.species}
+      stage={vitals?.stage}
       {talking}
       size={208}
       label={t('print-ai-gotchi.face.label', {
@@ -57,6 +63,58 @@
         >
       {/each}
     </p>
+    {#if vitals}
+      <div class="print-ai-gotchi-vitals">
+        <div
+          class="print-ai-gotchi-meter"
+          data-key="fullness"
+          data-hunger={vitals.hunger}
+        >
+          <p>
+            <span>{t(`print-ai-gotchi.hunger.${vitals.hunger}`)}</span>
+            <span
+              >{t('print-ai-gotchi.vitals.fullness', {
+                value: vitals.fullness,
+              })}</span
+            >
+          </p>
+          <div
+            class="print-ai-gotchi-bar"
+            role="meter"
+            aria-label={t('print-ai-gotchi.vitals.fullnessLabel')}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={vitals.fullness}
+          >
+            <span style:width="{vitals.fullness}%"></span>
+          </div>
+        </div>
+        <div class="print-ai-gotchi-meter" data-key="growth">
+          <p>
+            <span>{t(`print-ai-gotchi.stage.${vitals.stage}`)}</span>
+            <span
+              >{t('print-ai-gotchi.vitals.hours', {
+                hours: hoursText(vitals.hours),
+              })}</span
+            >
+          </p>
+          <div
+            class="print-ai-gotchi-bar"
+            role="meter"
+            aria-label={vitals.next
+              ? t('print-ai-gotchi.vitals.growthLabel', {
+                  next: t(`print-ai-gotchi.stage.${vitals.next}`),
+                })
+              : t('print-ai-gotchi.vitals.grownLabel')}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={vitals.growth}
+          >
+            <span style:width="{vitals.growth}%"></span>
+          </div>
+        </div>
+      </div>
+    {/if}
     {#if recent.length > 0}
       <ol class="print-ai-gotchi-recent">
         {#each recent as notice (notice.id)}

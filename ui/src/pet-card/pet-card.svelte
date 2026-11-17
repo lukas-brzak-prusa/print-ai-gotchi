@@ -52,6 +52,7 @@
       <PetFace
         face={view.mood.face}
         species={view.profile.species}
+        stage={view.vitals?.stage}
         size={faceSize}
         label={t('print-ai-gotchi.face.label', {
           name: view.profile.name,

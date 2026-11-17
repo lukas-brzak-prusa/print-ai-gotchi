@@ -10,6 +10,7 @@
   import { heldPet } from '../pet.svelte';
   import PetFace from '../pet-face/pet-face.svelte';
   import { suggestionsFor } from '../suggestions';
+  import { freshRoast } from '../words';
 
   interface Props {
     view: PetView;
@@ -30,6 +31,7 @@
   const awake = $derived(view.brain.ready);
   const name = $derived(view.profile.name);
   const suggestions = $derived(suggestionsFor(host.fleet.devices));
+  const roast = $derived(freshRoast(view.vitals?.roast));
 
   const send = async (text: string): Promise<void> => {
     if (!text.trim() || pet.thinking) return;
@@ -61,7 +63,27 @@
   aria-label={t('print-ai-gotchi.chat.title', { name })}
 >
   <div bind:this={log} class="print-ai-gotchi-log" aria-live="polite">
-    {#if pet.bubbles.length === 0}
+    {#if roast}
+      <div class="print-ai-gotchi-turn" data-role="pet">
+        <span class="print-ai-gotchi-avatar" aria-hidden="true">
+          <PetFace
+            face="proud"
+            species={view.profile.species}
+            stage={view.vitals?.stage}
+            size={36}
+            label=""
+          />
+        </span>
+        <div class="print-ai-gotchi-said" data-roast="true">
+          <p class="print-ai-gotchi-roast-title">
+            {t('print-ai-gotchi.roast.title', { name })}
+          </p>
+          <p>{roast.text}</p>
+        </div>
+      </div>
+    {/if}
+
+    {#if pet.bubbles.length === 0 && (!roast || !awake)}
       <div class="print-ai-gotchi-empty">
         {#if awake}
           <p class="text-base font-medium">
@@ -91,6 +113,7 @@
             <PetFace
               face={bubble.failed ? 'worried' : view.mood.face}
               species={view.profile.species}
+              stage={view.vitals?.stage}
               talking={bubble.pending === true && bubble.content !== ''}
               size={36}
               label=""

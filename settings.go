@@ -29,6 +29,9 @@ type Settings struct {
 	Quips bool `json:"quips"`
 	// PageSetup lets a person change the brain on the page.
 	PageSetup bool `json:"page_setup"`
+	// RoastHour is the hour of the server's day from which the pet writes its
+	// morning roast of the day before. -1 turns the roast off.
+	RoastHour int `json:"roast_hour"`
 }
 
 // The defaults module.yaml publishes. TestTheManifestPublishesTheCodesDefaults
@@ -36,11 +39,12 @@ type Settings struct {
 const (
 	defaultProvider = "local"
 	defaultModel    = "gemma3-4b"
+	defaultRoast    = 8
 )
 
 // defaults is what the module runs on before the host sends anything.
 func defaults() Settings {
-	return Settings{Provider: defaultProvider, Model: defaultModel, Quips: true, PageSetup: true}
+	return Settings{Provider: defaultProvider, Model: defaultModel, Quips: true, PageSetup: true, RoastHour: defaultRoast}
 }
 
 // normalise fills what the operator left empty and refuses what cannot work,
@@ -74,6 +78,10 @@ func (s Settings) normalise() (Settings, error) {
 		}
 
 		s.BaseURL = u
+	}
+
+	if s.RoastHour < -1 || s.RoastHour > 23 {
+		return s, fmt.Errorf("roast_hour is %d, and it is an hour from 0 to 23, or -1 for no roast", s.RoastHour)
 	}
 
 	if s.Threads < 0 {

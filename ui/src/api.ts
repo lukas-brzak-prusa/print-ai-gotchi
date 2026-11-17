@@ -6,7 +6,9 @@ import type { Operation, OperationRequest } from '@prusa/connect';
 import type { ModuleHost } from '@prusa/connect-ui/slots';
 
 export type Face =
-  'alarmed' | 'worried' | 'busy' | 'proud' | 'sleepy' | 'bored';
+  'alarmed' | 'worried' | 'busy' | 'proud' | 'hungry' | 'sleepy' | 'bored';
+export type Stage = 'baby' | 'kid' | 'adult' | 'legend';
+export type Hunger = 'full' | 'peckish' | 'hungry' | 'starving';
 export type Species = 'cat' | 'robot' | 'blob';
 
 export interface Profile {
@@ -124,12 +126,34 @@ export interface Summary {
   state?: LocalState;
 }
 
+export interface Roast {
+  date: string;
+  text: string;
+  at: string;
+}
+
+/** The pet's body. It counts the whole fleet and names no printer. */
+export interface Vitals {
+  stage: Stage;
+  hunger: Hunger;
+  /** 100 just after a print, 0 when starving begins. */
+  fullness: number;
+  hours: number;
+  fed: string;
+  born: string;
+  next?: Stage;
+  /** The share of the way to the next stage, 0 to 100. */
+  growth: number;
+  roast?: Roast;
+}
+
 export interface PetView {
   profile: Profile;
   mood: Mood;
   notices: Notice[];
   brain: Summary;
   choices: { personalities: string[]; languages: string[]; species: Species[] };
+  vitals?: Vitals;
 }
 
 export interface Turn {

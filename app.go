@@ -32,6 +32,7 @@ import (
 const (
 	keyProfile = stateapi.Key("profile")
 	keyNotices = stateapi.Key("notices")
+	keyVitals  = stateapi.Key("vitals")
 )
 
 // Bounds on what a person sends.
@@ -40,6 +41,8 @@ const (
 	maxTurnRunes   = 2000
 	answerTokens   = 320
 	quipTokens     = 60
+	roastTokens    = 180
+	lifeEvery      = 30 * time.Second
 	answerLifetime = 15 * time.Minute
 )
 
@@ -60,6 +63,13 @@ type App struct {
 	chosen  *Choice
 	started bool
 	replies map[string]*Reply
+	vitals  Vitals
+	// alive is set once the vitals were read from the store, or the store
+	// said there were none. Until then the pet neither grows nor gets hungry,
+	// so a slow store does not hatch it again.
+	alive    bool
+	roasting bool
+	now      func() time.Time
 
 	saving chan struct{}
 }
@@ -81,6 +91,7 @@ func newApp(records stateapi.Records, devices Devices, watcher *Watcher, brain *
 		thinking: make(chan struct{}, 1),
 		replies:  map[string]*Reply{},
 		saving:   make(chan struct{}, 1),
+		now:      time.Now,
 	}
 
 	s := defaults()
@@ -109,31 +120,70 @@ func (a *App) Start(ctx context.Context) {
 
 	go a.watcher.Run(ctx)
 	go a.saver(ctx)
+	go a.life(ctx)
 }
 
 // restore reads the notices an earlier run kept. The store may not answer in
 // the first moment after a start, so it is asked a few times.
 func (a *App) restore(ctx context.Context) {
-	for attempt := range 5 {
-		value, err := a.records.Get(ctx, keyNotices)
-
-		switch {
-		case err == nil:
-			var kept []Notice
-			if err := json.Unmarshal(value.Bytes, &kept); err != nil {
-				logf("the kept notices cannot be read: %v", err)
-
-				return
-			}
-
-			a.watcher.Restore(kept)
-
-			return
-		case errors.Is(err, stateapi.ErrNoRecord):
+	a.restoreKey(ctx, keyNotices, func(raw []byte, found bool) {
+		var kept []Notice
+		if !found {
 			return
 		}
 
-		logf("the kept notices could not be read (attempt %d): %v", attempt+1, err)
+		if err := json.Unmarshal(raw, &kept); err != nil {
+			logf("the kept notices cannot be read: %v", err)
+
+			return
+		}
+
+		a.watcher.Restore(kept)
+	})
+
+	a.restoreVitals(ctx)
+}
+
+// restoreVitals reads the pet's body, or hatches it when the store has none.
+func (a *App) restoreVitals(ctx context.Context) {
+	a.restoreKey(ctx, keyVitals, func(raw []byte, found bool) {
+		vitals := newVitals(a.now())
+		if found {
+			if err := json.Unmarshal(raw, &vitals); err != nil {
+				logf("the pet's vitals cannot be read, it hatches again: %v", err)
+
+				vitals = newVitals(a.now())
+			}
+		}
+
+		a.mu.Lock()
+		a.vitals, a.alive = vitals, true
+		a.mu.Unlock()
+
+		if !found {
+			a.announce(petNotice(vitals.Born, "hatched", severityInfo, ""))
+		}
+	})
+}
+
+// restoreKey reads one record and hands it to use, with found false when the
+// store has none. It gives up after a few attempts and calls nothing then.
+func (a *App) restoreKey(ctx context.Context, key stateapi.Key, use func(raw []byte, found bool)) {
+	for attempt := range 5 {
+		value, err := a.records.Get(ctx, key)
+
+		switch {
+		case err == nil:
+			use(value.Bytes, true)
+
+			return
+		case errors.Is(err, stateapi.ErrNoRecord):
+			use(nil, false)
+
+			return
+		}
+
+		logf("the kept %s could not be read (attempt %d): %v", key, attempt+1, err)
 
 		select {
 		case <-ctx.Done():
@@ -222,8 +272,31 @@ func (a *App) saveProfile(ctx context.Context, p Profile) error {
 // noticed is called for every new notice. It asks the brain for a comment
 // when the brain is free, and never waits for it.
 func (a *App) noticed(n Notice) {
-	a.save()
+	a.mu.Lock()
+	var follow []Notice
+	if a.alive {
+		follow = a.vitals.record(n)
+	}
+	a.mu.Unlock()
 
+	a.save()
+	a.comment(n)
+
+	for _, about := range follow {
+		a.announce(about)
+	}
+}
+
+// announce keeps a notice about the pet itself and lets the pet comment.
+func (a *App) announce(n Notice) {
+	n = a.watcher.Add(n)
+	a.save()
+	a.comment(n)
+}
+
+// comment asks the brain for a one-line comment on n when the brain is free,
+// and never waits for it.
+func (a *App) comment(n Notice) {
 	if !a.settings.Load().Quips {
 		return
 	}
@@ -247,7 +320,7 @@ func (a *App) noticed(n Notice) {
 		profile := a.Profile(ctx)
 		target.MaxTokens, target.Temperature = quipTokens, 0.9
 		target.Messages = []Message{
-			{Role: roleSystem, Content: system(profile, "(only the event below)")},
+			{Role: roleSystem, Content: system(profile, "(only the event below)\n"+a.vitalsText())},
 			{Role: roleUser, Content: quipPrompt(n, profile)},
 		}
 
@@ -287,6 +360,17 @@ func (a *App) saver(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-a.saving:
+		}
+
+		a.mu.Lock()
+		alive, vitals := a.alive, a.vitals
+		a.mu.Unlock()
+
+		if alive {
+			raw, _ := json.Marshal(vitals)
+			if _, err := a.records.Put(ctx, keyVitals, raw); err != nil {
+				logf("the pet's vitals could not be kept: %v", err)
+			}
 		}
 
 		kept := a.watcher.Kept()
@@ -355,7 +439,7 @@ func (a *App) Ask(r *http.Request, turns []Message) (*Reply, error) {
 	profile := a.Profile(r.Context())
 	messages := append([]Message{{
 		Role:    roleSystem,
-		Content: system(profile, Picture(printers, a.watcher.Notices(ids), time.Now())),
+		Content: system(profile, Picture(printers, a.watcher.Notices(ids), time.Now())+a.vitalsText()),
 	}}, turns...)
 
 	reply := &Reply{ID: newID(), State: "queued", At: time.Now()}
@@ -476,6 +560,8 @@ type PetView struct {
 	Notices []Notice `json:"notices"`
 	Brain   Summary  `json:"brain"`
 	Choices Choices  `json:"choices"`
+	// Vitals is absent until the pet's body was read from the store.
+	Vitals *VitalsView `json:"vitals,omitempty"`
 }
 
 // Choices is what the profile form offers.
@@ -510,12 +596,15 @@ func (a *App) routes() http.Handler {
 			return
 		}
 
+		vitals := a.vitalsView()
+
 		answer(w, http.StatusOK, PetView{
 			Profile: a.Profile(r.Context()),
-			Mood:    a.watcher.Mood(ids),
+			Mood:    moodWith(a.watcher.Mood(ids), vitals),
 			Notices: a.watcher.Notices(ids),
 			Brain:   a.summary(r.Context()),
 			Choices: choices(),
+			Vitals:  vitals,
 		})
 	})
 

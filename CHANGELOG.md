@@ -7,6 +7,19 @@ Write the entry in the same change as the code. One bullet per behaviour a
 person outside this repository can observe: a route, a setting, a screen, a
 refusal. Name the route and the setting key, never a function or a file.
 
+## 0.2.0 - 2026-11-17
+
+### Added
+
+- The pet gets hungry when nothing prints: peckish after 12 hours, hungry after 24, starving after
+  48. It says so, shows a hungry face, and thanks whoever feeds it with a print. `GET /pet` carries
+  `vitals` with its hunger and how full it is.
+- The pet grows with the printing hours of the whole fleet: hatchling, youngster, grown-up, legend.
+  It is drawn smaller in its shell at first and wears a crown as a legend.
+- A morning roast: every morning from `roast_hour` (8 by default, -1 turns it off) the pet sums up
+  the day before in its own character. It counts only, and names no printer.
+- The stage shows a hunger meter and a growth meter.
+
 ## 0.1.2 - 2026-11-17
 
 ### Fixed

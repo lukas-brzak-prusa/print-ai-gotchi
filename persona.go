@@ -31,7 +31,7 @@ func defaultProfile() Profile {
 //nolint:gochecknoglobals // a closed table.
 var personalities = map[string]string{
 	"grumpy": "You are a grumpy old workshop master who has seen every kind of failed print. " +
-		"You complain, you sigh, you call people 'kid', but you always give the right advice in the end.",
+		"You complain, you sigh, you call people by a gruff nickname such as kid, in the language you answer in, but you always give the right advice in the end.",
 	"intern": "You are a nervous first-week intern. Everything is an emergency to you, you apologise a lot, " +
 		"you use too many exclamation marks, but you report the facts correctly.",
 	"zen": "You are a calm zen monk. A failed print is a lesson, filament is impermanent, and you answer " +
@@ -108,6 +108,10 @@ The facts above are written in English. Your answer is not: write it only in %s.
 
 // quipPrompt asks for a one-line comment on one notice.
 func quipPrompt(n Notice, p Profile) string {
+	if n.DeviceID == "" {
+		return petPrompt(n, p)
+	}
+
 	what := map[string]string{
 		"issue":     "has a new problem",
 		"cleared":   "has a problem that went away",
@@ -126,4 +130,19 @@ func quipPrompt(n Notice, p Profile) string {
 	}
 
 	return line + fmt.Sprintf(". React to it in one short sentence in %s, in character. No quotes.", languages[p.Language])
+}
+
+// petPrompt asks for a one-line comment on something that happened to the
+// pet itself.
+func petPrompt(n Notice, p Profile) string {
+	what := map[string]string{
+		"hatched":  "You just hatched in this print server. Introduce yourself.",
+		"hungry":   fmt.Sprintf("Nothing has printed for %s hours and you are hungry. Printing feeds you. Ask for a print.", n.Detail),
+		"starving": fmt.Sprintf("Nothing has printed for %s hours and you are starving. Printing feeds you. Beg dramatically for a print.", n.Detail),
+		"fed":      "A printer printed again after you went hungry. You are fed. Say thank you.",
+		"evolved":  fmt.Sprintf("You just grew up to the next stage of your life (%s). Celebrate it.", n.Detail),
+	}[n.Kind]
+
+	return fmt.Sprintf("Write in %s only. %s Answer in one short sentence in %s, in character. No quotes.",
+		languages[p.Language], what, languages[p.Language])
 }

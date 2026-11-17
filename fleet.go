@@ -28,7 +28,9 @@ type Notice struct {
 	DeviceID   string    `json:"device_id"`
 	DeviceName string    `json:"device_name"`
 	// Kind is what happened, and the page translates it: issue, cleared,
-	// attention, started, finished, failed, stopped, online, offline.
+	// attention, started, finished, failed, stopped, online, offline, or
+	// about the pet itself, with no device: hungry, starving, fed, evolved,
+	// roast.
 	Kind string `json:"kind"`
 	// Severity is info, warning or error.
 	Severity string `json:"severity"`
@@ -160,8 +162,7 @@ func (w *Watcher) reload(ctx context.Context) error {
 	if !first {
 		fresh = diff(previous, current, time.Now())
 		for i := range fresh {
-			w.seq++
-			fresh[i].ID = strconv.FormatInt(fresh[i].At.UnixMilli(), 36) + "-" + strconv.Itoa(w.seq)
+			fresh[i].ID = w.nextIDLocked(fresh[i].At)
 			if fresh[i].Kind == "finished" {
 				w.lastJob[fresh[i].DeviceID] = fresh[i].At
 			}
@@ -183,6 +184,45 @@ func (w *Watcher) reload(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// nextIDLocked is a fresh notice id. The caller holds mu.
+func (w *Watcher) nextIDLocked(at time.Time) string {
+	w.seq++
+
+	return strconv.FormatInt(at.UnixMilli(), 36) + "-" + strconv.Itoa(w.seq)
+}
+
+// Add keeps a notice about the pet itself and returns it with its id.
+func (w *Watcher) Add(n Notice) Notice {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	n.ID = w.nextIDLocked(n.At)
+	w.notices = append(w.notices, n)
+
+	if len(w.notices) > maxNotices {
+		w.notices = slices.Clone(w.notices[len(w.notices)-maxNotices:])
+	}
+
+	return n
+}
+
+// Printing is how many printers of the whole fleet print, and false until
+// the fleet was read once.
+func (w *Watcher) Printing() (int, bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	count := 0
+
+	for _, d := range w.printers {
+		if stateOf(d) == "PRINTING" {
+			count++
+		}
+	}
+
+	return count, w.listed
 }
 
 // Restore puts back the notices kept from an earlier run.
@@ -214,7 +254,8 @@ func (w *Watcher) Notices(visible map[string]bool) []Notice {
 	out := make([]Notice, 0, len(w.notices))
 
 	for i := len(w.notices) - 1; i >= 0; i-- {
-		if visible == nil || visible[w.notices[i].DeviceID] {
+		// A notice about the pet itself names no printer, so everybody sees it.
+		if visible == nil || w.notices[i].DeviceID == "" || visible[w.notices[i].DeviceID] {
 			out = append(out, w.notices[i])
 		}
 	}
@@ -392,7 +433,7 @@ func jobName(d deviceapi.Device) string {
 
 // Mood is the face the pet shows, worked out from the fleet without a brain.
 type Mood struct {
-	// Face is alarmed, worried, busy, proud, sleepy or bored.
+	// Face is alarmed, worried, busy, proud, hungry, sleepy or bored.
 	Face string `json:"face"`
 	// Printers, Printing, Problems and Online count the fleet the caller sees.
 	Printers int `json:"printers"`
