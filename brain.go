@@ -100,17 +100,18 @@ type Brain struct {
 	model      string // the model the server should run, empty when off
 	state      string
 	err        string
-	port       int
+	socket     string             // the unix socket the running server answers on
+	sockets    string             // the private directory the sockets are made in
 	stop       context.CancelFunc // stops the server's supervisor
 	download   *Download
 	cancelDL   context.CancelFunc
-	client     *http.Client
+	client     *http.Client // dials socket
 	log        func(format string, args ...any)
 	generation int
 }
 
 func newBrain(log func(string, ...any)) *Brain {
-	return &Brain{client: &http.Client{}, log: log, state: brainNoData}
+	return &Brain{log: log, state: brainNoData}
 }
 
 // Configure takes the operator's settings and the data directory.
@@ -187,17 +188,33 @@ func (b *Brain) Status() LocalStatus {
 	return out
 }
 
-// Endpoint is the base address of the running server, and false while it
-// cannot answer.
-func (b *Brain) Endpoint() (string, bool) {
+// localBase is the base address of the local server. The host part is a
+// label only: the client dials the server's unix socket, so no request to it
+// ever touches the network.
+const localBase = "http://llama-server/v1"
+
+// Endpoint is the base address of the running server and the client that
+// reaches it, and false while it cannot answer.
+func (b *Brain) Endpoint() (string, *http.Client, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if b.state != brainReady {
-		return "", false
+		return "", nil, false
 	}
 
-	return "http://127.0.0.1:" + strconv.Itoa(b.port) + "/v1", true
+	return localBase, b.client, true
+}
+
+// socketClient is an HTTP client that reaches the server on its unix socket.
+func socketClient(socket string) *http.Client {
+	var dialer net.Dialer
+
+	return &http.Client{Transport: &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return dialer.DialContext(ctx, "unix", socket)
+		},
+	}}
 }
 
 // Install downloads the runtime if it is missing and the model, in the
@@ -292,6 +309,15 @@ func (b *Brain) Close() {
 	b.mu.Unlock()
 
 	b.halt()
+
+	b.mu.Lock()
+	sockets := b.sockets
+	b.sockets = ""
+	b.mu.Unlock()
+
+	if sockets != "" {
+		_ = os.RemoveAll(sockets)
+	}
 }
 
 // The paths of what the brain keeps. The caller holds mu.
@@ -565,7 +591,7 @@ func (b *Brain) supervise(ctx context.Context, generation int) {
 
 // runOnce runs llama-server until it exits or ctx ends.
 func (b *Brain) runOnce(ctx context.Context, generation int) error {
-	port, err := freePort()
+	socket, err := b.socketPath(generation)
 	if err != nil {
 		return err
 	}
@@ -578,8 +604,10 @@ func (b *Brain) runOnce(ctx context.Context, generation int) error {
 	dir := filepath.Dir(server)
 	args := []string{
 		"--model", model,
-		"--host", "127.0.0.1",
-		"--port", strconv.Itoa(port),
+		// A path ending in .sock makes llama-server listen on a unix socket
+		// instead of a port, so nothing else on the machine or the network
+		// can reach it.
+		"--host", socket,
 		"--ctx-size", "4096",
 		"--parallel", "1",
 	}
@@ -604,8 +632,10 @@ func (b *Brain) runOnce(ctx context.Context, generation int) error {
 		return fmt.Errorf("start %s: %w", server, err)
 	}
 
+	client := socketClient(socket)
+
 	b.mu.Lock()
-	b.port = port
+	b.socket, b.client = socket, client
 	b.mu.Unlock()
 
 	tail := &lastLines{max: 8}
@@ -617,7 +647,7 @@ func (b *Brain) runOnce(ctx context.Context, generation int) error {
 		}
 	}()
 
-	go b.waitHealthy(ctx, port, generation)
+	go b.waitHealthy(ctx, client, socket, generation)
 
 	err = cmd.Wait()
 
@@ -629,8 +659,8 @@ func (b *Brain) runOnce(ctx context.Context, generation int) error {
 }
 
 // waitHealthy polls /health until the model is loaded.
-func (b *Brain) waitHealthy(ctx context.Context, port, generation int) {
-	url := "http://127.0.0.1:" + strconv.Itoa(port) + "/health"
+func (b *Brain) waitHealthy(ctx context.Context, client *http.Client, socket string, generation int) {
+	url := strings.TrimSuffix(localBase, "/v1") + "/health"
 
 	for {
 		select {
@@ -641,7 +671,7 @@ func (b *Brain) waitHealthy(ctx context.Context, port, generation int) {
 
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			continue
 		}
@@ -650,12 +680,12 @@ func (b *Brain) waitHealthy(ctx context.Context, port, generation int) {
 
 		if resp.StatusCode == http.StatusOK {
 			b.mu.Lock()
-			if b.generation == generation && b.port == port {
+			if b.generation == generation && b.socket == socket {
 				b.state, b.err = brainReady, ""
 			}
 			model := b.model
 			b.mu.Unlock()
-			b.log("the local brain is ready with %s on 127.0.0.1:%d", model, port)
+			b.log("the local brain is ready with %s", model)
 
 			return
 		}
@@ -666,7 +696,7 @@ func (b *Brain) waitHealthy(ctx context.Context, port, generation int) {
 func (b *Brain) halt() {
 	b.mu.Lock()
 	stop := b.stop
-	b.stop, b.port = nil, 0
+	b.stop, b.socket, b.client = nil, "", nil
 	b.generation++
 	b.mu.Unlock()
 
@@ -675,14 +705,27 @@ func (b *Brain) halt() {
 	}
 }
 
-func freePort() (int, error) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	defer listener.Close()
+// socketPath is a fresh socket for one run of the server, in a directory
+// only this process may enter. It is under the system's temporary directory
+// rather than the data directory, because a unix socket path is limited to
+// about a hundred bytes and the data directory can be deeper than that.
+func (b *Brain) socketPath(generation int) (string, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
-	return listener.Addr().(*net.TCPAddr).Port, nil
+	if b.sockets == "" {
+		dir, err := os.MkdirTemp("", "print-ai-gotchi-")
+		if err != nil {
+			return "", fmt.Errorf("make the brain's socket directory: %w", err)
+		}
+
+		b.sockets = dir
+	}
+
+	socket := filepath.Join(b.sockets, "brain-"+strconv.Itoa(generation)+".sock")
+	_ = os.Remove(socket)
+
+	return socket, nil
 }
 
 // lastLines keeps the end of what a child wrote, for the error a person reads.

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "print-ai-gotchi",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "The routes of PrintAIgotchi. Every path is relative to the mount the host assigns. The host takes view_resource on the instance for a GET and operate_resource for anything else."
   },
   "paths": {

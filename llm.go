@@ -37,6 +37,9 @@ type completion struct {
 	MaxTokens int
 	// Temperature is low for facts and higher for a joke.
 	Temperature float64
+	// Client reaches the brain when it needs a client of its own, as the
+	// local server on its unix socket does. Nil uses the shared one.
+	Client *http.Client
 }
 
 type chatRequest struct {
@@ -79,6 +82,10 @@ func stream(ctx context.Context, client *http.Client, c completion, onPiece func
 
 	if c.Key != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Key)
+	}
+
+	if c.Client != nil {
+		client = c.Client
 	}
 
 	resp, err := client.Do(req)

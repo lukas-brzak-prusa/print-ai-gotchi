@@ -7,6 +7,13 @@ Write the entry in the same change as the code. One bullet per behaviour a
 person outside this repository can observe: a route, a setting, a screen, a
 refusal. Name the route and the setting key, never a function or a file.
 
+## 0.1.1 - 2026-11-17
+
+### Changed
+
+- The local brain answers on a unix socket in a private directory instead of a port on 127.0.0.1,
+  so nothing else on the machine can reach it, and the module listens on no port.
+
 ## 0.1.0 - 2026-11-17
 
 ### Added

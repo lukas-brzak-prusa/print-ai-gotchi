@@ -7,7 +7,7 @@
 
 name: print-ai-gotchi
 kind: sink
-version: 0.1.0
+version: 0.1.1
 license: MIT
 title: PrintAIgotchi
 summary: A pet that watches your printers, tells you what needs you, and chats with a small AI model running on your own server.

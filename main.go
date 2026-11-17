@@ -45,7 +45,7 @@ import (
 // What this child reports when the host asks it what it is.
 const (
 	name    = "print-ai-gotchi"
-	release = extension.Version("0.1.0")
+	release = extension.Version("0.1.1")
 )
 
 //go:embed openapi.json

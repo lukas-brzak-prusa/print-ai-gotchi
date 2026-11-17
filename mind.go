@@ -91,9 +91,9 @@ func (a *App) target(ctx context.Context) (completion, Provider, bool) {
 	p, _ := providerByID(c.Provider)
 
 	if p.Kind == kindLocal {
-		url, ok := a.brain.Endpoint()
+		url, client, ok := a.brain.Endpoint()
 
-		return completion{BaseURL: url, Model: c.LocalModel}, p, ok
+		return completion{BaseURL: url, Model: c.LocalModel, Client: client}, p, ok
 	}
 
 	out := completion{BaseURL: c.urlFor(p), Model: c.Model[p.ID], Key: c.Keys[p.ID]}
