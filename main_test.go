@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -457,5 +459,51 @@ func TestAnUnknownPathIsRefusedByCode(t *testing.T) {
 func TestTheHostTakesTheOpenAPIFragment(t *testing.T) {
 	if _, err := routesapi.ParseFragment(openAPI); err != nil {
 		t.Fatalf("the host refuses openapi.json: %v", err)
+	}
+}
+
+// A download goes to the internet even when no local server runs, which is
+// when the first one happens.
+func TestADownloadNeedsNoRunningServer(t *testing.T) {
+	content := []byte("a pinned model, as far as this test is concerned")
+	sum := sha256.Sum256(content)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(content)
+	}))
+	t.Cleanup(server.Close)
+
+	brain := newBrain(func(string, ...any) {})
+	if brain.local != nil {
+		t.Fatal("a new brain has a server's client before any server runs")
+	}
+
+	dest := filepath.Join(t.TempDir(), "brain", "model.gguf")
+	file := pinned{URL: server.URL + "/model.gguf", SHA256: hex.EncodeToString(sum[:]), Size: int64(len(content))}
+
+	if err := brain.fetchFile(context.Background(), "model", file, dest); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := os.ReadFile(dest)
+	if err != nil || !bytes.Equal(got, content) {
+		t.Fatalf("the model on disk is %q (%v)", got, err)
+	}
+
+	file.SHA256 = strings.Repeat("0", 64)
+	if err := brain.fetchFile(context.Background(), "model", file, dest+".other"); err == nil {
+		t.Fatal("a file with another digest was kept")
+	}
+}
+
+// llama-server gets its libraries and a few basics, not the module's whole
+// environment.
+func TestTheServerGetsOnlyTheEnvironmentItNeeds(t *testing.T) {
+	t.Setenv("PRINT_AI_GOTCHI_SECRET", "x")
+
+	for _, entry := range serverEnv("/lib") {
+		if strings.HasPrefix(entry, "PRINT_AI_GOTCHI_SECRET=") {
+			t.Fatal("the server saw the module's own environment")
+		}
 	}
 }

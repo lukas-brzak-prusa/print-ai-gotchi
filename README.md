@@ -25,10 +25,10 @@ Ollama.
 | part | file | what it does |
 | --- | --- | --- |
 | eyes | `fleet.go` | follows the fleet on the server's event stream as the module itself (`observe`), turns changes into notices, works out the mood, and writes the plain-text picture of the fleet a model reads |
-| brain | `brain.go`, `models.go` | downloads a pinned llama.cpp build and a pinned model into the module's data directory, checks both against a SHA-256 digest, and runs `llama-server` on the loopback address only |
+| brain | `brain.go`, `models.go` | downloads a pinned llama.cpp build and a pinned model into the module's data directory, checks both against a SHA-256 digest, and runs `llama-server` on a unix socket in a private directory, so it listens on no port |
 | voice | `llm.go`, `anthropic.go` | one streaming client for the OpenAI chat API, and Claude through the Anthropic SDK |
 | mind | `providers.go`, `mind.go` | the providers, the brain a person chose, and the routes of the Brain tab |
-| character | `persona.go` | the characters and the system prompt |
+| character | `persona.go` | the characters and the character instructions the model reads |
 | routes | `app.go` | the routes the page calls. An answer is started with `POST /chat` and read with `GET /chat/{id}` while the model writes it, because a model on a Raspberry Pi can take longer than one request may |
 
 A person sees only the printers they may see: the picture a model reads and

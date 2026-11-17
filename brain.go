@@ -105,13 +105,16 @@ type Brain struct {
 	stop       context.CancelFunc // stops the server's supervisor
 	download   *Download
 	cancelDL   context.CancelFunc
-	client     *http.Client // dials socket
+	local      *http.Client // dials the running server's socket, nil while none runs
+	downloads  *http.Client // fetches the runtime and the models from the internet
 	log        func(format string, args ...any)
 	generation int
 }
 
 func newBrain(log func(string, ...any)) *Brain {
-	return &Brain{log: log, state: brainNoData}
+	// A download has no timeout of its own: a model is gigabytes on a slow
+	// line, and Remove and Close cancel it through its context.
+	return &Brain{log: log, state: brainNoData, downloads: &http.Client{}}
 }
 
 // Configure takes the operator's settings and the data directory.
@@ -203,7 +206,7 @@ func (b *Brain) Endpoint() (string, *http.Client, bool) {
 		return "", nil, false
 	}
 
-	return localBase, b.client, true
+	return localBase, b.local, true
 }
 
 // socketClient is an HTTP client that reaches the server on its unix socket.
@@ -396,7 +399,7 @@ func (b *Brain) fetchFile(ctx context.Context, step string, file pinned, dest st
 
 	req.Header.Set("User-Agent", name+"/"+string(release))
 
-	resp, err := b.client.Do(req)
+	resp, err := b.downloads.Do(req)
 	if err != nil {
 		return fmt.Errorf("download the %s: %w", step, err)
 	}
@@ -620,7 +623,7 @@ func (b *Brain) runOnce(ctx context.Context, generation int) error {
 
 	//nolint:gosec // the path is the pinned runtime or the operator's own setting.
 	cmd := exec.CommandContext(ctx, server, args...)
-	cmd.Env = append(os.Environ(), "LD_LIBRARY_PATH="+dir, "DYLD_LIBRARY_PATH="+dir)
+	cmd.Env = serverEnv(dir)
 	cmd.Dir = dir
 
 	stderr, err := cmd.StderrPipe()
@@ -635,7 +638,7 @@ func (b *Brain) runOnce(ctx context.Context, generation int) error {
 	client := socketClient(socket)
 
 	b.mu.Lock()
-	b.socket, b.client = socket, client
+	b.socket, b.local = socket, client
 	b.mu.Unlock()
 
 	tail := &lastLines{max: 8}
@@ -656,6 +659,21 @@ func (b *Brain) runOnce(ctx context.Context, generation int) error {
 	}
 
 	return fmt.Errorf("llama-server exited (%v): %s", err, tail.String())
+}
+
+// serverEnv is the whole environment llama-server gets: where to find its
+// own libraries and the few variables a program expects. Nothing else of the
+// module's environment reaches it.
+func serverEnv(libraries string) []string {
+	env := []string{"LD_LIBRARY_PATH=" + libraries, "DYLD_LIBRARY_PATH=" + libraries}
+
+	for _, key := range []string{"PATH", "HOME", "TMPDIR"} {
+		if value, ok := os.LookupEnv(key); ok {
+			env = append(env, key+"="+value)
+		}
+	}
+
+	return env
 }
 
 // waitHealthy polls /health until the model is loaded.
@@ -696,7 +714,7 @@ func (b *Brain) waitHealthy(ctx context.Context, client *http.Client, socket str
 func (b *Brain) halt() {
 	b.mu.Lock()
 	stop := b.stop
-	b.stop, b.socket, b.client = nil, "", nil
+	b.stop, b.socket, b.local = nil, "", nil
 	b.generation++
 	b.mu.Unlock()
 

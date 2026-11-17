@@ -7,6 +7,17 @@ Write the entry in the same change as the code. One bullet per behaviour a
 person outside this repository can observe: a route, a setting, a screen, a
 refusal. Name the route and the setting key, never a function or a file.
 
+## 0.1.2 - 2026-11-17
+
+### Fixed
+
+- Installing a model on the Brain tab works again. In 0.1.1 the first download stopped the module,
+  and a download while the local brain ran failed.
+
+### Changed
+
+- `llama-server` gets only the environment it needs: its library path, `PATH`, `HOME` and `TMPDIR`.
+
 ## 0.1.1 - 2026-11-17
 
 ### Changed
