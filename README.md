@@ -1,5 +1,7 @@
 # PrintAIgotchi
 
+![Nozzle the grumpy cat, Bolt the commentator robot and Blobby the zen blob, each reacting to the printers](docs/pets.png)
+
 A pet that lives in your [Prusa Connect](https://github.com/prusa3d/prusa-connect) server. It watches
 the printers, tells you what needs you, comments on what happens in its own
 words, and talks with you. Its brain is a small language model that runs on the
@@ -15,6 +17,8 @@ Ollama.
 - ten brains: a local model, Ollama, LM Studio, Claude, OpenAI, Gemini,
   OpenRouter, Groq, Mistral or any OpenAI-compatible server
 - a page of its own with the chat, and a card for a dashboard
+
+![The Talk tab: the pet on its stage with the latest notices, and a chat about the printers](docs/chat.png)
 
 ## How it works
 
